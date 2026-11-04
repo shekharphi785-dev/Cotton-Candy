@@ -1,0 +1,44 @@
+{
+  "name": "cotton-candy",
+  "version": "0.2.0",
+  "description": "Cotton Candy: personal notch-style AI companion, recorder and productivity island",
+  "author": "Your Name",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.personal.cottoncandy",
+    "productName": "Cotton Candy",
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "features.js",
+      "package.json",
+      "!node_modules/onnxruntime-node/bin/napi-v3/{darwin,linux}/**"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ]
+    },
+    "artifactName": "Cotton-Candy-${version}.${ext}",
+    "asarUnpack": [
+      "node_modules/onnxruntime-node/**/*",
+      "node_modules/sharp/**/*",
+      "node_modules/@img/**/*"
+    ]
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.0.0"
+  }
+}

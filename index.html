@@ -1,0 +1,134 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Cotton Candy</title>
+<style>
+:root{--c:#9aa6ff;--bg:#050507;--fg:#ecebf4;--mut:#8b8a9c;--line:#1f1f2b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:transparent;overflow:hidden;color:var(--fg);font:13px/1.45 "Segoe UI",system-ui,sans-serif}
+#isl{height:100%;background:var(--bg);border-radius:0 0 24px 24px;display:flex;flex-direction:column;overflow:hidden}
+#bar{display:flex;align-items:center;gap:10px;padding:8px 14px;min-height:56px;cursor:pointer}
+#pip{width:38px;height:38px;flex:none}
+#pip .body{fill:var(--c);transition:fill .3s}
+#pip .eye{transform-box:fill-box;transform-origin:center;transition:transform .08s}
+#pip.blink .eye{transform:scaleY(.1)}
+#pip.alert{animation:hop .5s ease 3}
+@keyframes hop{50%{transform:translateY(-4px)}}
+#status{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut)}
+#bar .tools{display:none;gap:6px}
+.open #bar .tools{display:flex}
+button,select,input,textarea{font:inherit;color:var(--fg);background:#12121a;border:1px solid var(--line);border-radius:8px}
+button{padding:4px 9px;cursor:pointer}button:hover{border-color:var(--c)}
+select{padding:4px}
+#body{display:none;flex:1;min-height:0;flex-direction:column;padding:0 14px 14px}
+.open #body{display:flex}
+#log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:6px 0}
+.m{padding:7px 10px;border-radius:12px;max-width:88%;white-space:pre-wrap;word-wrap:break-word;user-select:text}
+.u{align-self:flex-end;background:#1b1b2a}
+.a{align-self:flex-start;background:#0e0e15;border:1px solid var(--line)}
+.e{align-self:flex-start;color:#ffb27a;background:#1c120b}
+#row{display:flex;gap:8px}
+#in{flex:1;resize:none;padding:8px;height:38px}
+#set{display:none;overflow:auto;gap:10px;flex-direction:column;padding:6px 0}
+.cfg{display:grid;grid-template-columns:70px 1fr;gap:6px;align-items:center}
+.cfg input{padding:5px 8px;width:100%}
+.cfg b{grid-column:1/-1;margin-top:6px}
+.hint{color:var(--mut);font-size:12px}
+:focus-visible{outline:2px solid var(--c);outline-offset:1px}
+@media (prefers-reduced-motion:reduce){#pip.alert{animation:none}}
+#tabs{display:flex;gap:6px;padding:2px 0 8px}#tabs button{flex:1}
+.pane{display:none;flex:1;min-height:0;flex-direction:column;gap:8px}.pane.on{display:flex}
+.row{display:flex;gap:6px;align-items:center}.row select{flex:1}
+#p-Notes textarea{flex:1;padding:8px;resize:none}
+.list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:6px}
+.it{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 8px;background:#0e0e15;border:1px solid var(--line);border-radius:10px}
+.it span{flex:1;overflow:hidden;text-overflow:ellipsis}.tx{width:100%;white-space:pre-wrap;user-select:text}
+#fd{font-size:52px;text-align:center;margin:28px 0;font-variant-numeric:tabular-nums}
+</style></head>
+<body>
+<div id="isl">
+  <div id="bar">
+    <svg id="pip" viewBox="0 0 40 40"><rect class="body" x="3" y="5" width="34" height="32" rx="13"/>
+      <g class="eye"><circle cx="14" cy="19" r="5.5" fill="#fff"/><circle id="pl" cx="14" cy="19" r="2.6" fill="#0a0a12"/></g>
+      <g class="eye"><circle cx="26" cy="19" r="5.5" fill="#fff"/><circle id="pr" cx="26" cy="19" r="2.6" fill="#0a0a12"/></g></svg>
+    <div id="status">Ready. Click or press Ctrl/Cmd+Shift+Space.</div>
+    <div class="tools" onclick="event.stopPropagation()">
+      <select id="prov" title="Provider"><option value="google">Google AI Studio</option><option value="github">GitHub Models</option><option value="nvidia">NVIDIA NIM</option></select>
+      <button id="gear" title="Settings">⚙</button><button id="clr" title="New chat">New</button><button id="quit" title="Quit">✕</button>
+    </div>
+  </div>
+  <div id="body">
+    <div id="log"></div>
+    <div id="set"></div>
+    <div id="row"><textarea id="in" placeholder="Ask anything. Enter sends, Shift+Enter adds a line."></textarea><button id="send">Send</button></div>
+  </div>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const NAMES={google:'Google AI Studio',github:'GitHub Models',nvidia:'NVIDIA NIM'};
+const HELP={google:'Free key: aistudio.google.com/apikey',github:'Fine-grained token with “Models: read” – github.com/settings/tokens',nvidia:'Free key (nvapi-…): build.nvidia.com'};
+let cfg,open=false,msgs=[],cur=null,busy=false,idleT,mood='idle';
+
+/* ---- island open/close ---- */
+function setOpen(v){open=v;document.body.classList.toggle('open',v);window.api.resize(v?540:300,v?500:56);if(v)$('#in').focus()}
+$('#bar').onclick=()=>setOpen(!open);
+window.api.onToggle(()=>setOpen(!open));
+$('#quit').onclick=()=>window.api.quit();
+
+/* ---- Pip: mood, eyes, blink ---- */
+const COL={idle:'#9aa6ff',work:'#3ea6ff',alert:'#ffa63e',done:'#3ddc84'};
+function setMood(m,text,ms){
+  mood=m;document.documentElement.style.setProperty('--c',COL[m]);
+  $('#pip').classList.toggle('alert',m==='alert');
+  if(text)$('#status').textContent=text;
+  clearTimeout(idleT);
+  if(ms)idleT=setTimeout(()=>setMood('idle','Ready.'),ms);
+}
+setInterval(()=>{const p=$('#pip');p.classList.add('blink');setTimeout(()=>p.classList.remove('blink'),120)},3500+Math.random()*2000);
+window.api.onCursor(({x,y})=>{
+  const r=$('#pip').getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+  let dx=x-cx,dy=y-cy;const d=Math.hypot(dx,dy)||1,k=Math.min(2.6,d/40);
+  dx=dx/d*k;dy=dy/d*k;
+  $('#pl').setAttribute('cx',14+dx);$('#pl').setAttribute('cy',19+dy);
+  $('#pr').setAttribute('cx',26+dx);$('#pr').setAttribute('cy',19+dy);
+});
+
+/* ---- agent hooks (Claude Code etc.) ---- */
+window.api.onAgent(e=>{
+  const ev=e.hook_event_name||e.event||'',a=e.agent||'Claude Code';
+  if(ev==='Notification')setMood('alert',`${a} needs you`,0);
+  else if(ev==='Stop'||ev==='SubagentStop')setMood('done',`${a} finished`,8000);
+  else if(['PreToolUse','PostToolUse','UserPromptSubmit'].includes(ev))setMood('work',`${a}: ${e.tool_name||'thinking'}…`,60000);
+});
+
+/* ---- chat ---- */
+function bubble(cls,t){const d=document.createElement('div');d.className='m '+cls;d.textContent=t;$('#log').append(d);$('#log').scrollTop=1e9;return d}
+function send(){
+  const t=$('#in').value.trim();if(!t||busy)return;
+  $('#in').value='';msgs.push({role:'user',content:t});bubble('u',t);
+  cur=bubble('a','…');cur.textContent='';busy=true;setMood('work','Thinking…',0);
+  window.api.chat({provider:$('#prov').value,messages:[{role:'system',content:'You are Cotton Candy, a concise, friendly assistant living in the user’s screen notch. Keep answers short unless asked.'},...msgs]});
+}
+window.api.onChunk(t=>{cur.textContent+=t;$('#log').scrollTop=1e9});
+window.api.onDone(()=>{msgs.push({role:'assistant',content:cur.textContent});busy=false;setMood('done','Answered',4000)});
+window.api.onErr(t=>{if(cur&&!cur.textContent)cur.remove();bubble('e',t);busy=false;setMood('alert','Something went wrong',6000);msgs.pop()});
+$('#send').onclick=send;
+$('#in').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}};
+$('#clr').onclick=()=>{msgs=[];$('#log').innerHTML=''};
+$('#prov').onchange=()=>window.api.saveConfig({provider:$('#prov').value});
+
+/* ---- settings ---- */
+function renderSettings(){
+  $('#set').innerHTML=Object.keys(NAMES).map(n=>`<div class="cfg"><b>${NAMES[n]}</b>
+    <label for="k-${n}">Key</label><input id="k-${n}" type="password" placeholder="${cfg.providers[n].hasKey?'saved – paste to replace':'paste key'}">
+    <label for="m-${n}">Model</label><input id="m-${n}" value="${cfg.providers[n].model}">
+    <span></span><span class="hint">${HELP[n]}</span></div>`).join('')+
+    '<button id="sv">Save settings</button><div class="hint">Keys are encrypted with your OS keychain and never leave your machine except to call the provider you pick. If a model stops working, replace its name here.</div>';
+  $('#sv').onclick=async()=>{
+    const u={provider:$('#prov').value,providers:{}};
+    for(const n in NAMES)u.providers[n]={key:$('#k-'+n).value,model:$('#m-'+n).value};
+    cfg=await window.api.saveConfig(u);renderSettings();setMood('done','Settings saved',3000);
+  };
+}
+$('#gear').onclick=()=>{const s=$('#set').style.display==='flex';$('#set').style.display=s?'none':'flex';$('#log').style.display=s?'flex':'none';$('#row').style.display=s?'flex':'none'};
+(async()=>{cfg=await window.api.getConfig();$('#prov').value=cfg.provider;renderSettings();
+  if(!Object.values(cfg.providers).some(p=>p.hasKey))$('#status').textContent='Click me, then ⚙ to add a free API key.'})();
+</script><script src="features.js"></script></body></html>
