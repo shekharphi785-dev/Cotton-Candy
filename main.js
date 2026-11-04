@@ -3,11 +3,14 @@ const http = require('http'), fs = require('fs'), path = require('path');
 
 const PORT = 47821;
 const DEF = {
-  provider: 'google',
+  provider: 'groq',
   providers: {
+    groq: { url: 'https://api.groq.com/openai/v1/chat/completions', model: 'llama-3.3-70b-versatile', key: '' },
+    cerebras: { url: 'https://api.cerebras.ai/v1/chat/completions', model: 'llama3.1-8b', key: '' },
+    openrouter: { url: 'https://openrouter.ai/api/v1/chat/completions', model: 'meta-llama/llama-3.3-70b-instruct:free', key: '' },
     nvidia: { url: 'https://integrate.api.nvidia.com/v1/chat/completions', model: 'meta/llama-3.3-70b-instruct', key: '' },
     github: { url: 'https://models.github.ai/inference/chat/completions', model: 'openai/gpt-4.1-mini', key: '' },
-    google: { url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-2.5-flash', key: '' }
+    google: { url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-3.8-flash', key: '' }
   }
 };
 const cfgFile = () => path.join(app.getPath('userData'), 'config.json');
@@ -112,6 +115,20 @@ ipcMain.handle('transcribe', async (e, audio) => {
   const out = await asr(audio, { chunk_length_s: 30, stride_length_s: 5, task: 'transcribe' });
   return (out.text || '').trim();
 });
+ipcMain.handle('listModels', async (_e, n, k) => {
+  const p = load().providers[n], key = k || (p && p.key);
+  if (!p || !key) return { error: 'Paste a key first.' };
+  try {
+    const url = n === 'github' ? 'https://models.github.ai/catalog/models' : p.url.replace('/chat/completions', '/models');
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + key } });
+    if (!r.ok) return { error: `${r.status}: ${(await r.text()).slice(0, 120)}` };
+    const j = await r.json();
+    let ids = (Array.isArray(j) ? j : j.data || j.models || []).map(m => String(m.id || m.name || '').replace(/^models\//, '')).filter(Boolean);
+    if (n === 'google') ids = ids.filter(i => /gemini|gemma/.test(i));
+    if (n === 'openrouter') ids = ids.filter(i => i.endsWith(':free'));
+    return { ids: ids.sort() };
+  } catch (e) { return { error: String(e.message || e) }; }
+});
 ipcMain.on('resize', (_e, w, h) => place(w, h));
 ipcMain.on('quit', () => app.quit());
 
@@ -122,7 +139,7 @@ ipcMain.on('chat', async (e, { provider, messages }) => {
     const r = await fetch(p.url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + p.key },
-      body: JSON.stringify({ model: p.model, messages, stream: true, max_tokens: 1024 })
+      body: JSON.stringify({ model: p.model, messages, stream: true, max_tokens: 1024, temperature: 0.4 })
     });
     if (!r.ok) return s.send('err', `${provider} returned ${r.status}: ${(await r.text()).slice(0, 300)}`);
     const td = new TextDecoder(); let buf = '';

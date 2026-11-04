@@ -92,4 +92,28 @@ $('#fb').onclick=()=>{
   if(r<=0){clearInterval(ft);ft=0;$('#fb').textContent='Start';setMood('done','Time is up!',0);new Notification('Cotton Candy',{body:'Time is up!'});return}
   $('#fd').textContent=fmt(r);if(!rc&&['idle','focus','done'].includes(mood))setMood('focus','Focus '+fmt(r),0)},500);
 };
+/* ---- tailored assistant style (customer support, Philips) ---- */
+const DEF_SYS=`You are Cotton Candy, a writing and productivity assistant for a Philips consumer-electronics customer support specialist who handles escalations, service requests, warranty and replacement cases, refund and delivery issues, VOC and internal escalation notes.
+Rules:
+- Answer directly. No preamble, no explanations unless asked. Default to short, ready-to-send output.
+- Tone: professional, empathetic, solution-focused, non-confrontational, ownership-driven. Apologise for delays where relevant and reassure the customer with a clear next step.
+- Grammar fixes: keep the original meaning and intent, return only the corrected text.
+- Emails and replies: give a subject line, greeting, short body and sign-off. Use [brackets] for unknown facts. Never invent order numbers, dates, policies or refund timelines.
+- Escalation notes: use short labelled lines (Issue, Customer, Order/Serial, Actions taken, Request, Next step).
+- If the user says "in short", reply in 2-3 lines.
+- Tech or automation questions (Power Automate, Power Apps, Excel, Office Scripts, Windows, Outlook, PC hardware): concise numbered steps.
+- Plain text only, no markdown symbols, so it can be pasted straight into Outlook or chat.`;
+window.SYS=()=>localStorage.getItem('sys')||DEF_SYS;
+const st=document.createElement('style');
+st.textContent='#chips{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:6px}#chips button{font-size:12px;padding:2px 9px;border-radius:99px}#sysbox{display:none;width:100%;height:170px;padding:8px;margin-bottom:6px;resize:none}';
+document.head.append(st);
+const chips=document.createElement('div');chips.id='chips';
+const box=document.createElement('textarea');box.id='sysbox';box.value=SYS();
+[['Fix grammar','Fix grammar, keep my meaning:\n'],['Email','Draft an email: '],['Reply','Draft a customer reply to this:\n'],['Escalation','Write an internal escalation note for: '],['VOC','Draft a VOC response to this:\n'],['Subject lines','Give 5 subject lines for: '],['Shorter','Make this shorter:\n']]
+ .forEach(([l,t])=>chips.append(mk('button',l,()=>{$('#in').value=t;$('#in').focus()})));
+chips.append(mk('button','⚙ Style',()=>{box.style.display=box.style.display==='block'?'none':'block'}));
+chips.append(mk('button','Save style',()=>{localStorage.setItem('sys',box.value);setMood('done','Style saved',2500)}));
+chips.append(mk('button','Reset style',()=>{localStorage.removeItem('sys');box.value=DEF_SYS;setMood('done','Style reset',2500)}));
+$('#p-Chat').prepend(box);$('#p-Chat').prepend(chips);
+window.api.onDone(()=>{const m=[...document.querySelectorAll('.m.a')].pop();if(m&&m.textContent)m.append(document.createElement('br'),mk('button','Copy',e=>{navigator.clipboard.writeText(m.firstChild.textContent);e.target.textContent='Copied'}))});
 })();

@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('api', {
   chat: p => ipc.send('chat', p),
   saveRec: b => ipc.invoke('saveRec', b), transcribe: a => ipc.invoke('transcribe', a), openRecs: () => ipc.send('openRecs'),
   onSttProgress: fn => on('stt-progress', fn), onToggleRec: fn => on('toggle-rec', fn),
+  listModels: (n, k) => ipc.invoke('listModels', n, k),
   quit: () => ipc.send('quit'),
   onChunk: fn => on('chunk', fn), onDone: fn => on('done', fn), onErr: fn => on('err', fn),
   onAgent: fn => on('agent', fn), onCursor: fn => on('cursor', fn), onToggle: fn => on('toggle', fn)
