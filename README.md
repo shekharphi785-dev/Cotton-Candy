@@ -9,6 +9,9 @@ Chat with free-tier models from Google AI Studio, GitHub Models or NVIDIA NIM, a
 3. Click the pill (or Ctrl/Cmd+Shift+Space), click the gear, paste a key, Save.
 
 ## Free keys
+- Groq (fastest): https://console.groq.com/keys
+- Cerebras: https://cloud.cerebras.ai
+- OpenRouter: https://openrouter.ai/keys (models ending in :free)
 - Google AI Studio: https://aistudio.google.com/apikey
 - GitHub Models: fine-grained personal access token with "Models: read" – https://github.com/settings/tokens
 - NVIDIA NIM: https://build.nvidia.com (key starts with nvapi-)

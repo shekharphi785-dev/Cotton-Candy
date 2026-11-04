@@ -51,7 +51,7 @@ select{padding:4px}
       <g class="eye"><circle cx="26" cy="19" r="5.5" fill="#fff"/><circle id="pr" cx="26" cy="19" r="2.6" fill="#0a0a12"/></g></svg>
     <div id="status">Ready. Click or press Ctrl/Cmd+Shift+Space.</div>
     <div class="tools" onclick="event.stopPropagation()">
-      <select id="prov" title="Provider"><option value="google">Google AI Studio</option><option value="github">GitHub Models</option><option value="nvidia">NVIDIA NIM</option></select>
+      <select id="prov" title="Provider"><option value="groq">Groq</option><option value="cerebras">Cerebras</option><option value="openrouter">OpenRouter</option><option value="google">Google AI Studio</option><option value="github">GitHub Models</option><option value="nvidia">NVIDIA NIM</option></select>
       <button id="gear" title="Settings">⚙</button><button id="clr" title="New chat">New</button><button id="quit" title="Quit">✕</button>
     </div>
   </div>
@@ -63,8 +63,8 @@ select{padding:4px}
 </div>
 <script>
 const $=s=>document.querySelector(s);
-const NAMES={google:'Google AI Studio',github:'GitHub Models',nvidia:'NVIDIA NIM'};
-const HELP={google:'Free key: aistudio.google.com/apikey',github:'Fine-grained token with “Models: read” – github.com/settings/tokens',nvidia:'Free key (nvapi-…): build.nvidia.com'};
+const NAMES={groq:'Groq (fastest)',cerebras:'Cerebras (very fast)',openrouter:'OpenRouter (free models)',google:'Google AI Studio',github:'GitHub Models',nvidia:'NVIDIA NIM'};
+const HELP={groq:'Free key (gsk_…): console.groq.com/keys',cerebras:'Free key: cloud.cerebras.ai',openrouter:'Free key: openrouter.ai/keys – use models ending in :free',google:'Free key: aistudio.google.com/apikey',github:'Fine-grained token with “Models: read” – github.com/settings/tokens',nvidia:'Free key (nvapi-…): build.nvidia.com'};
 let cfg,open=false,msgs=[],cur=null,busy=false,idleT,mood='idle';
 
 /* ---- island open/close ---- */
@@ -119,9 +119,13 @@ $('#prov').onchange=()=>window.api.saveConfig({provider:$('#prov').value});
 function renderSettings(){
   $('#set').innerHTML=Object.keys(NAMES).map(n=>`<div class="cfg"><b>${NAMES[n]}</b>
     <label for="k-${n}">Key</label><input id="k-${n}" type="password" placeholder="${cfg.providers[n].hasKey?'saved – paste to replace':'paste key'}">
-    <label for="m-${n}">Model</label><input id="m-${n}" value="${cfg.providers[n].model}">
-    <span></span><span class="hint">${HELP[n]}</span></div>`).join('')+
+    <label for="m-${n}">Model</label><input id="m-${n}" list="dl-${n}" value="${cfg.providers[n].model}"><datalist id="dl-${n}"></datalist>
+    <span></span><span class="hint">${HELP[n]}</span><span></span><span><button class="lm" data-n="${n}">Load models</button> <span class="hint" id="lr-${n}"></span></span></div>`).join('')+
     '<button id="sv">Save settings</button><div class="hint">Keys are encrypted with your OS keychain and never leave your machine except to call the provider you pick. If a model stops working, replace its name here.</div>';
+  document.querySelectorAll('.lm').forEach(b=>b.onclick=async()=>{const n=b.dataset.n,o=$('#lr-'+n);o.textContent='Loading…';
+    const r=await window.api.listModels(n,$('#k-'+n).value.trim());
+    if(r.error){o.textContent=r.error;return}
+    $('#dl-'+n).innerHTML=r.ids.map(i=>`<option value="${i}">`).join('');o.textContent=r.ids.length+' found. Clear the Model box to pick one.'});
   $('#sv').onclick=async()=>{
     const u={provider:$('#prov').value,providers:{}};
     for(const n in NAMES)u.providers[n]={key:$('#k-'+n).value,model:$('#m-'+n).value};
